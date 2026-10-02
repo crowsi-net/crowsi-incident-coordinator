@@ -1,44 +1,30 @@
 # crowsi-incident-coordinator
 
-A Rust crate for incident response using a closed state machine and cryptographically verifiable persistence contracts. It maintains evidence and command plans for containment, recovery, monitoring, and closure. Consumers perform authorized external effects through their own execution boundary.
+Track an incident through containment, recovery, monitoring and closure using explicit evidence.
 
-A successful transition requires matching signed receipts and signed observations from an independently managed verifier for every requirement. Each recovery requires fresh hardware-bound step-up authorization and a recovery-authority signature. Automatic recovery is rejected.
+## What you can do
 
-## Trust boundaries
+- Validate a requested incident transition.
+- Produce a reviewable coordination plan.
 
-- Events bind to the incident's pinned owner authority, deployment, incident, epoch, and short validity interval.
-- Identity, intent, policy decision, and grant signatures are verified with exact subject/device/workload/proof-key/revocation/resource/action/channel matching.
-- Production construction requires an externally pinned canonical trust-bundle digest with deployment and revision.
-- PEP, verifier, recovery authority, incident owner, IdP, Policy Administrator, checkpoint authority, and anchor authority have separate roles and scopes.
-- Production uses the internal system clock; simulation and production clock APIs are separate.
-- Replay JTIs, authorization reservations, approval IDs, evidence JTIs, and restore attempts are retained in durable state.
+## Current scope
 
-## Production persistence
+The coordinator models transitions. External containment and recovery actions require separately authorized adapters.
 
-`IncidentCoordinator::new` requires a checkpoint commit before use. Production `apply` stages a complete `pending_outbox` and blocks the next event. The caller then:
+Package distribution is not activated by this documentation. Use the checked-in source and the declared dependency versions; published availability must be verified separately.
 
-1. Reads `export_state`.
-2. Obtains a checkpoint-authority signature over `CoordinatorCheckpointV1`, including state digest, sorted unique command digests, trust pin/revision, and previous checkpoint digest.
-3. Obtains a short-lived independent monotonic-authority signature over `ExternalMonotonicAnchorV1`, bound to the coordinator's one-use OS-CSPRNG challenge.
-4. Updates the deployment/incident durable head through linearizable CAS.
-5. Calls `confirm_checkpoint_commit` with an authenticated exact-current-head reader.
+## Getting started
 
-Only step 5 releases `CommandReleaseV1`. Consumers verify checkpoint membership for each canonical command digest. Rollback, divergent branches/deployments, trust substitution, stale challenges, and signing-role confusion are rejected.
+Install Rust 1.97 or newer and make the declared dependencies available. Use the configured private registry when a dependency is not distributed publicly. Run from this repository:
 
-`MonotonicHeadReaderV1` must read the exact durable head. Restore additionally requires an external trust pin, fresh challenge, signed checkpoint/anchor, and exact current head. `restore_simulation` is not a production restore path.
-
-## Command release integration
-
-`CoordinatorCommandV1` and `CommandReleaseV1` require `AtomicReleaseConsumerV1` to reserve `(head, command_digest)` exactly once in a linearizable transaction/lease. The Policy Administrator then revalidates the authorization ledger and binds reservation, deployment/security domain, incident, head sequence/digest, fence, grant JTI, expiry, and expected resource version into a signed downstream command. The effect owner rechecks fence, revocation, expiry, one-use, and resource-version CAS at mutation and returns a signed receipt.
-
-The current `crowsi-control-contracts` `IsolationCommandV1` lacks this release/fence binding. Production isolation remains blocked until the v2 contract, PA ledger, and PEP/provider adapter are connected. Source publication does not close this deployment gate.
-
-## State and schemas
-
-Persist complete `CoordinatorStateV1`, including replay sets, authorization reservations, used approval/evidence, pending recovery, monitoring evidence, and pending outbox. Schemas are closed Draft 2020-12 documents; tests check IDs, required/property agreement, serialization shapes, and event tags.
-
-```bash
-cargo test --locked --offline
+```sh
+cargo test --locked
 ```
 
-Configure the declared private Cargo registries before running offline verification. See [SECURITY.md](SECURITY.md) for operational requirements and remaining risks.
+## Documentation and source
+
+[Interface reference](docs/interface-reference.md)
+
+[Usage guide](docs/getting-started.md)
+
+[Schemas](schemas) · [Implementation and public interfaces](src) · [Verification cases](tests) · [Contributing](CONTRIBUTING.md) · [Security reporting](SECURITY.md) · [License](LICENSE) · [Attribution notices](NOTICE)
